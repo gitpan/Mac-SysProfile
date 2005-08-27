@@ -3,8 +3,7 @@ package Mac::SysProfile;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
-sub VERSION { $VERSION }
+our $VERSION = '0.02';
 
 my %conf = (
    bin => 'system_profiler',
