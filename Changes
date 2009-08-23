@@ -1,5 +1,10 @@
 Revision history for Perl extension Mac::SysProfile.
 
+0.03  Sat Aug 22 20:46:40 2009
+    - Thanks to Adadov:
+       - Adjusted parsing to work with newer OSX :: rt 48059 (applied patch from https://rt.cpan.org/Ticket/Attachment/636368/324402/)
+       - removed note 'It doesn't handle "SPLogsDataType" well at all so its a basically useless type unless you do it via $pro->xml() :)' since the patch appears to have addressed it!
+    
 0.02  Fri Aug 26 18:35:00 2005
         - fixed issue with VERSION() that conflicted with UNIVERSAL's VERSION functionality
 

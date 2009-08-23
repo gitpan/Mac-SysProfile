@@ -3,16 +3,16 @@ package Mac::SysProfile;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 my %conf = (
-   bin => 'system_profiler',
-   lst => '-listDataTypes',
-   sfw => 'SPSoftwareDataType',
-   sfx => 'System Software Overview',
-   osx => 'System Version',
-   drw => 'Kernel Version',
-   xml => '-xml',
+   'bin' => 'system_profiler',
+   'lst' => '-listDataTypes',
+   'sfw' => 'SPSoftwareDataType',
+   'sfx' => 'System Software Overview',
+   'osx' => 'System Version',
+   'drw' => 'Kernel Version',
+   'xml' => '-xml',
 );
 
 my %types;
@@ -179,8 +179,6 @@ If you put it in a file that has a .spx extension then it will be an XML file wh
 =head1 MISC
 
 It doesn't currently use the "detailLevel" option.
-
-It doesn't handle "SPLogsDataType" well at all so its a basically useless type unless you do it via $pro->xml() :)
 
 =head1 AUTHOR
 
