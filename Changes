@@ -1,5 +1,10 @@
 Revision history for Perl extension Mac::SysProfile.
 
+0.04  Sun Nov 20 14:57:34 2011
+    - perltidy .pm
+    - rt 52983: parse a type's info from XML for more reliability and consistency
+        - There is an improvement needed per the "TODO" comments in gettype() before the format can be considered final
+
 0.03  Sat Aug 22 20:46:40 2009
     - Thanks to Adadov:
        - Adjusted parsing to work with newer OSX :: rt 48059 (applied patch from https://rt.cpan.org/Ticket/Attachment/636368/324402/)

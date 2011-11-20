@@ -3,16 +3,18 @@ package Mac::SysProfile;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+use Mac::PropertyList ();
+
+our $VERSION = '0.04';
 
 my %conf = (
-   'bin' => 'system_profiler',
-   'lst' => '-listDataTypes',
-   'sfw' => 'SPSoftwareDataType',
-   'sfx' => 'System Software Overview',
-   'osx' => 'System Version',
-   'drw' => 'Kernel Version',
-   'xml' => '-xml',
+    'bin' => 'system_profiler',
+    'lst' => '-listDataTypes',
+    'sfw' => 'SPSoftwareDataType',
+    'sfx' => 'os_overview',
+    'osx' => 'os_version',
+    'drw' => 'kernel_version',
+    'xml' => '-xml',
 );
 
 my %types;
@@ -20,82 +22,101 @@ my %types;
 sub new { bless {}, shift }
 
 sub types {
-   my $pro = shift;
-   for( `$conf{bin} $conf{lst}` ) {
-     next if m/:/;
-     chomp;
-     $pro->{$_} = undef unless exists $pro->{$_};
-     $types{$_} = 1;
-   }
-   return [keys %types];
+    my $pro = shift;
+    for (`$conf{bin} $conf{lst}`) {
+        next if m/:/;
+        chomp;
+        $pro->{$_} = undef unless exists $pro->{$_};
+        $types{$_} = 1;
+    }
+    return [ keys %types ];
 }
 
 sub gettype {
-   my ($pro, $typ, $fre) = @_;
-   $pro->types() unless exists $types{$typ};
-   if(!exists $types{$typ}) {
-      delete $pro->{$typ};
-      return undef;
-   }
-   my $raw = $fre || !$pro->{$typ} ? `$conf{bin} $typ` : $pro->{$typ};
-   my $hdr = '';
-   for(split /\n/, $raw) {
-      next if m/^\s*$/ || m/^\w/;
-      if(m/^\s{4}\w/) {
-         $hdr = $_;
-         $hdr =~ s/^\s+//;
-         $hdr =~ s/:.*$//;
-         $pro->{$typ}->{$hdr} = {};
-      } elsif(m/^\s{6}\w/) {
-         s/^\s+//;
-         s/\s+$//;
-         my($k,$v) = split /:\s+/;
-         if($hdr) {
-            $pro->{$typ}->{$hdr}->{$k} = $v;
-         } else {
-            $pro->{$typ}->{$k} = $v;
-         }
-      }
-   }
-   return $pro->{$typ};
+    my ( $pro, $typ, $fre ) = @_;
+
+    $pro->types() unless exists $types{$typ};
+
+    if ( !exists $types{$typ} ) {
+        delete $pro->{$typ};
+        return;
+    }
+
+    return $pro->{$typ} if $pro->{$typ} && !$fre;
+
+    my $data  = Mac::PropertyList::parse_plist( $pro->xml($typ) );
+    my $items = $data->[0]{_items};
+
+    # Workaround for types that have multiples (e.g. SPMemoryDataType)
+    if ( defined $items->[0] && exists $items->[0]{'_items'} ) {
+        $items = $items->[0]{'_items'};
+    }
+
+    my $hdr;
+    foreach my $item ( @{$items} ) {
+        my $res;
+
+        # Might be useful w/ TODO below: my $name = delete $item->{'_name'} || '';
+        while ( my ( $key, $value ) = each %{$item} ) {
+            my $val = $value->value();
+            my $end_val;
+
+            if ( ref($val) ) {
+                $end_val = $val->value();    # TODO: instead, $val needs to be deeply turned into a plain data structure (Storable::dclone() does not do it, Mac::PropertyList::plist_as_perl() does not seem to work)
+            }
+            else {
+                $end_val = $val;
+            }
+
+            $res->{$key} = $end_val;
+
+            # Might be useful w/ TODO above: $res->{$key}{$name} = $end_val;
+        }
+
+        push @{ $pro->{$typ} }, $res;
+    }
+
+    $pro->{$typ} ||= [];
+
+    return $pro->{$typ};
 }
 
 sub osx {
-   my $pro = shift;
-   my $fre = shift || '';
-   return $pro->{_osx_version} if $pro->{_osx} && !$fre;
-   $pro->gettype($conf{sfw}, $fre);
-   ($pro->{_osx_version}) = $pro->{ $conf{sfw} }->{ $conf{sfx} }->{ $conf{osx} } =~ m/\s(\d+(\.\d+)*)\D/;
-   return $pro->{_osx_version};
+    my $pro = shift;
+    my $fre = shift || '';
+    return $pro->{_osx_version} if $pro->{_osx} && !$fre;
+    $pro->gettype( $conf{sfw}, $fre );
+    ( $pro->{_osx_version} ) = $pro->{ $conf{sfw} }->{ $conf{sfx} }->{ $conf{osx} } =~ m/\s(\d+(\.\d+)*)\D/;
+    return $pro->{_osx_version};
 }
 
 sub darwin {
-   my $pro = shift;
-   my $fre = shift || '';
-   return $pro->{_darwin_version} if $pro->{_darwin_version} && !$fre;
-   $pro->gettype($conf{sfw},$fre);
-   ($pro->{_darwin_version}) = $pro->{ $conf{sfw} }->{ $conf{sfx} }->{ $conf{drw} } =~ m/\s(\d+(\.\d+)*)\D/;
-   return $pro->{_darwin_version};
+    my $pro = shift;
+    my $fre = shift || '';
+    return $pro->{_darwin_version} if $pro->{_darwin_version} && !$fre;
+    $pro->gettype( $conf{sfw}, $fre );
+    ( $pro->{_darwin_version} ) = $pro->{ $conf{sfw} }->{ $conf{sfx} }->{ $conf{drw} } =~ m/\s(\d+(\.\d+)*)\D/;
+    return $pro->{_darwin_version};
 }
 
 sub state_hashref {
-   my $pro = shift;
-   my %x = %{ $pro };
-   return \%x;   
+    my $pro = shift;
+    my %x   = %{$pro};
+    return \%x;
 }
 
 sub xml {
-   my $pro = shift;
-   my $key = shift;
-   my $fh = shift || '';
-   my $raw = exists $types{$key} ? `$conf{bin} -xml $key` : undef;   
-   print $fh $raw if ref $fh eq 'GLOB' && defined $raw;
-   if($fh && !ref $fh) {
-      open XML, ">$fh" or return;
-      print XML $raw;
-      close XML;      
-   }
-   return $raw;
+    my $pro = shift;
+    my $key = shift;
+    my $fh  = shift || '';
+    my $raw = exists $types{$key} ? `$conf{'bin'} $conf{'xml'} $key` : undef;
+    print $fh $raw if ref $fh eq 'GLOB' && defined $raw;
+    if ( $fh && !ref $fh ) {
+        open XML, ">$fh" or return;
+        print XML $raw;
+        close XML;
+    }
+    return $raw;
 }
 
 1;
@@ -175,6 +196,12 @@ If you put it in a file that has a .spx extension then it will be an XML file wh
   for(@{ $pro->types() }) {
      $pro->xml($_, $pro->osx() . "/$_.spx") or warn "$_.spx failed: $!";
   }
+
+=head1 Pre v0.04 caveat
+
+The data structure format is changed in 0.04 since parsing the non-XML output reliably is impossible (but seems to work fine at first glance).
+
+There is still a TODO comment in gettypes() that needs addressed before the data structure returned can be considered a stable format.
 
 =head1 MISC
 
