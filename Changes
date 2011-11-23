@@ -1,5 +1,8 @@
 Revision history for Perl extension Mac::SysProfile.
 
+0.05  Tue Nov 22 19:05:58 2011
+    - case 72570: clean up (finalized?) gettype()'s new return value
+
 0.04  Sun Nov 20 14:57:34 2011
     - perltidy .pm
     - rt 52983: parse a type's info from XML for more reliability and consistency

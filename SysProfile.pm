@@ -4,8 +4,9 @@ use strict;
 use warnings;
 
 use Mac::PropertyList ();
+use Scalar::Util      ();
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 my %conf = (
     'bin' => 'system_profiler',
@@ -56,21 +57,32 @@ sub gettype {
     foreach my $item ( @{$items} ) {
         my $res;
 
-        # Might be useful w/ TODO below: my $name = delete $item->{'_name'} || '';
+        my $name = '';
+
+        # not used to keep from making the already complex structure arbitrarily more complex
+        # would also need done in _structify_val()
+        # my $name = delete $item->{'_name'} || '';
+        #         if ( ref($name) ) {
+        #             $name = $name->value();
+        # }
+
         while ( my ( $key, $value ) = each %{$item} ) {
             my $val = $value->value();
             my $end_val;
 
             if ( ref($val) ) {
-                $end_val = $val->value();    # TODO: instead, $val needs to be deeply turned into a plain data structure (Storable::dclone() does not do it, Mac::PropertyList::plist_as_perl() does not seem to work)
+                $end_val = $val->value();
             }
             else {
                 $end_val = $val;
             }
 
-            $res->{$key} = $end_val;
-
-            # Might be useful w/ TODO above: $res->{$key}{$name} = $end_val;
+            if ($name) {
+                $res->{$name}{$key} = _structify_val($end_val);
+            }
+            else {
+                $res->{$key} = _structify_val($end_val);
+            }
         }
 
         push @{ $pro->{$typ} }, $res;
@@ -79,6 +91,33 @@ sub gettype {
     $pro->{$typ} ||= [];
 
     return $pro->{$typ};
+}
+
+# recursive fixer upper: Storable::dclone() does not do it, Mac::PropertyList::plist_as_perl() does not seem to work-patches welcome!
+sub _structify_val {
+    my ($val) = @_;
+    my $ref = Scalar::Util::reftype($val);
+    return $val if !$ref;
+    if ( $ref eq 'ARRAY' ) {
+        my @arr;
+        for my $item ( @{$val} ) {
+            push @arr, _structify_val($item);
+        }
+        return \@arr;
+    }
+    elsif ( $ref eq 'SCALAR' ) {
+        return $val->value();
+    }
+    elsif ( $ref eq 'HASH' ) {
+        my %hsh;
+        while ( my ( $k, $v ) = each %{$val} ) {
+            $hsh{$k} = _structify_val($v);
+        }
+        return \%hsh;
+    }
+    else {
+        die "Do not know $ref";
+    }
 }
 
 sub osx {
@@ -146,13 +185,19 @@ Returns an array ref of the datatypes available  use for $pro->gettype()
 
 =head2 $pro->gettype()
 
-Returns a hashref of the given type's data.
+Returns a data structure of the given type's data.
 
   my $soft = $pro->gettype('SPSoftwareDataType');
 
 Once you call it for a type it returns the cached data on the next call unless the second argument is true.
 
   my $soft = $pro->gettype('SPSoftwareDataType',1);
+
+The data structure is an array ref of hashes. These hashes can be arbitrarily complex. 
+
+A hash at any point in that structure may or may not have a '_name' key. It is left in place to keep from making the already complex structure arbitrarily more complex.
+
+Use it or ignore it as appropriate to your needs.
 
 =head2 $pro->osx()
 
@@ -200,8 +245,6 @@ If you put it in a file that has a .spx extension then it will be an XML file wh
 =head1 Pre v0.04 caveat
 
 The data structure format is changed in 0.04 since parsing the non-XML output reliably is impossible (but seems to work fine at first glance).
-
-There is still a TODO comment in gettypes() that needs addressed before the data structure returned can be considered a stable format.
 
 =head1 MISC
 

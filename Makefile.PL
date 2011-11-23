@@ -5,6 +5,7 @@ WriteMakefile(
     VERSION_FROM      => 'SysProfile.pm',
     PREREQ_PM         => {
         'Mac::PropertyList' => 0,
+        'Scalar::Util' => 0,
     },
     ($] >= 5.005 ?   
       (ABSTRACT_FROM  => 'SysProfile.pm', 
